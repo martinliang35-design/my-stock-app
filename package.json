@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1",
+    "dev:restart": "lsof -ti :3000 | xargs kill -9 2>/dev/null; lsof -ti :3001 | xargs kill -9 2>/dev/null; rm -rf .next/dev .next/cache 2>/dev/null; next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
+    "chart.js": "^4.4.6",
+    "echarts": "^5.5.0",
     "next": "16.1.6",
     "react": "19.2.3",
+    "react-chartjs-2": "^5.2.0",
     "react-dom": "19.2.3"
   },
   "devDependencies": {

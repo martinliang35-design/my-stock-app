@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stock-Cloud
 
-## Getting Started
+多市场个人股票持仓看板（Next.js + Supabase），支持 A 股、港股、美股，数据云端存储，登录后按用户隔离。
 
-First, run the development server:
+## 快速开始
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 [http://localhost:3000](http://localhost:3000)。未登录会显示登录/注册页；登录后进入持仓看板。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 环境变量
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+首次克隆后，复制 `.env.example` 为 `.env.local` 并填入真实值，可减少漏配导致的启动或 500 问题：
 
-## Learn More
+```bash
+cp .env.example .env.local
+```
 
-To learn more about Next.js, take a look at the following resources:
+在 `.env.local` 中配置：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `NEXT_PUBLIC_SUPABASE_URL`：Supabase 项目 URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`：Supabase 匿名公钥
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 数据库
 
-## Deploy on Vercel
+在 Supabase 控制台 SQL Editor 中依次执行：
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `supabase/migrations/002_create_holdings.sql`（创建持仓表）
+- `supabase/migrations/003_holdings_user_id_rls.sql`（多用户隔离：user_id + RLS）
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Email 登录默认已开启，无需额外配置。
+
+## 项目文档
+
+- [文档索引](docs/README.md)
+- [需求说明](docs/requirements.md)
+- [技术设计](docs/technical.md)
+
+## 美股行情
+
+使用新浪财经接口，国内可直接访问；若不可用会尝试 Yahoo（境外可能可用）。
