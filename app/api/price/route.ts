@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit | undefined,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...(init ?? {}), signal: controller.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 function getEastMoneySecid(code: string, market: string): string | null {
   const c = String(code || "").trim().replace(/^(sh|sz|hk)/i, "");
   if (market === "A") {
@@ -24,7 +38,7 @@ function eastMoneyF43ToPrice(v: number, secid: string): number | null {
 
 async function getEastMoneyPrice(secid: string): Promise<number | null> {
   const url = `https://push2.eastmoney.com/api/qt/stock/get?secid=${encodeURIComponent(secid)}&fields=f43&invt=2`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetchWithTimeout(url, { cache: "no-store" }, 6000);
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
   const v = data?.data?.f43;
@@ -34,7 +48,7 @@ async function getEastMoneyPrice(secid: string): Promise<number | null> {
 
 async function getEastMoneyLastClose(secid: string): Promise<number | null> {
   const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${encodeURIComponent(secid)}&klt=101&fqt=1&lmt=1&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetchWithTimeout(url, { cache: "no-store" }, 8000);
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
   const klines = data?.data?.klines;
@@ -49,7 +63,11 @@ const SINA_REFERER = "https://finance.sina.com.cn/";
 
 async function getSinaPrice(symbol: string): Promise<number | null> {
   const url = `https://hq.sinajs.cn/list=${symbol}`;
-  const res = await fetch(url, { cache: "no-store", headers: { Referer: SINA_REFERER } });
+  const res = await fetchWithTimeout(
+    url,
+    { cache: "no-store", headers: { Referer: SINA_REFERER } },
+    6000
+  );
   if (!res.ok) return null;
   const text = await res.text();
   const m = text.match(/="([^"]*)"/);
@@ -64,7 +82,11 @@ async function getSinaUSPrice(symbol: string): Promise<number | null> {
   const code = symbol.replace(/\s/g, "").toLowerCase();
   if (!code) return null;
   const url = `https://hq.sinajs.cn/list=gb_${code}`;
-  const res = await fetch(url, { cache: "no-store", headers: { Referer: SINA_REFERER } });
+  const res = await fetchWithTimeout(
+    url,
+    { cache: "no-store", headers: { Referer: SINA_REFERER } },
+    6000
+  );
   if (!res.ok) return null;
   const text = await res.text();
   const m = text.match(/="([^"]*)"/);
@@ -86,7 +108,7 @@ async function getYahooPrice(symbol: string): Promise<number | null> {
   const chartUrl1d = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
   const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
   const tryUrl = async (url: string, parse: (data: unknown) => number | null): Promise<number | null> => {
-    const res = await fetch(url, { cache: "no-store", headers: YAHOO_HEADERS });
+    const res = await fetchWithTimeout(url, { cache: "no-store", headers: YAHOO_HEADERS }, 7000);
     if (!res.ok) return null;
     const data = await res.json().catch(() => null);
     return parse(data);

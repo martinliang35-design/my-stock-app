@@ -9,6 +9,7 @@ export type Holding = {
   quantity: number;
   cost_price: number;
   current_price: number;
+  strategy?: string;
   sort_order: number;
   created_at?: string;
   updated_at?: string;
@@ -40,6 +41,7 @@ function normalizeRow(row: Record<string, unknown>): Holding {
     quantity: Number(row.quantity) || 0,
     cost_price: Number(row.cost_price) || 0,
     current_price: Number(row.current_price) || 0,
+    strategy: row.strategy != null ? String(row.strategy) : "",
     sort_order: Number(row.sort_order) ?? 0,
     created_at: row.created_at as string | undefined,
     updated_at: row.updated_at as string | undefined,
@@ -54,6 +56,7 @@ export async function insertHolding(holding: Partial<HoldingInsert>): Promise<Ho
     quantity: holding.quantity ?? 0,
     cost_price: holding.cost_price ?? 0,
     current_price: holding.current_price ?? 0,
+    strategy: holding.strategy ?? "",
     sort_order: holding.sort_order ?? 0,
     updated_at: new Date().toISOString(),
   };

@@ -7,7 +7,7 @@
 | 框架 | Next.js 16 (App Router) | 前端 + 服务端 API 路由，React 19。 |
 | 语言 | TypeScript | 全项目 TS。 |
 | 样式 | Tailwind CSS 4 | 原子类 + 全局主题（如 `globals.css` 中的变量）。 |
-| 数据库 | Supabase (PostgreSQL) | 持仓表存储、RLS 策略。 |
+| 数据库 | Supabase (PostgreSQL) | 持仓、个人资料、策略文本存储；RLS 策略。 |
 | 图表 | Chart.js + react-chartjs-2 | 饼图、柱状图。 |
 | K 线 | ECharts | K 线弹窗。 |
 | 客户端 | @supabase/supabase-js | 浏览器直连 Supabase（需配置 anon key）；含 Auth 会话管理。 |
@@ -32,6 +32,8 @@ stock-cloud/
 │   ├── HoldingsDashboard.tsx
 │   ├── HoldingsTable.tsx
 │   ├── ChartsSection.tsx
+│   ├── SettingsModal.tsx
+│   ├── StrategyModal.tsx
 │   └── KlineModal.tsx
 ├── lib/
 │   ├── supabase.ts
@@ -41,7 +43,10 @@ stock-cloud/
 ├── supabase/migrations/
 │   ├── 001_create_stocks.sql
 │   ├── 002_create_holdings.sql
-│   └── 003_holdings_user_id_rls.sql
+│   ├── 003_holdings_user_id_rls.sql
+│   ├── 004_holdings_strategy.sql
+│   ├── 005_create_profiles.sql
+│   └── 006_profiles_investment_strategy.sql
 ├── docs/
 │   ├── README.md
 │   ├── requirements.md
@@ -57,7 +62,7 @@ stock-cloud/
 ## 3. 数据流概览
 
 1. **页面加载**：`app/page.tsx` 渲染 `AuthGuard` → 若未登录显示 `AuthForm`，若已登录显示 `HoldingsDashboard` → 调用 `fetchHoldings()`（Supabase 带 JWT，RLS 仅返回当前 user_id 的行）→ 展示表格与汇总。
-2. **刷新股价**：看板对每条持仓请求 `GET /api/price` → 服务端请求第三方行情 → 返回 `{ price }` → 看板用 `updateHolding(id, { current_price })` 写回 Supabase → 再拉一次列表刷新 UI。
+2. **刷新股价**：看板对每条持仓请求 `GET /api/price`（前端超时 + 并发控制）→ 服务端请求第三方行情（服务端超时）→ 返回 `{ price }` → 看板写回 Supabase → 再拉一次列表刷新 UI（含超时兜底，防止一直 loading）。
 3. **汇率**：看板请求 `GET /api/rates` 得到 `{ usdToCny, hkdToCny }`，并写入 localStorage；汇总时用本地 `rates` 折算港/美市值。
 4. **K 线**：点击行 → 打开 `KlineModal` → 请求 `GET /api/kline` → 渲染 ECharts。
 
@@ -85,7 +90,13 @@ stock-cloud/
 
 字段：id, user_id, code, name, market, quantity, cost_price, current_price, sort_order, created_at, updated_at。RLS：SELECT/UPDATE/DELETE 仅当 user_id = auth.uid()；INSERT 由触发器自动填 user_id。
 
-### 5.2 表：stocks
+### 5.2 表：profiles
+
+字段：`user_id`, `display_name`, `bio`, `investment_strategy`, `updated_at`。  
+用途：设置页个人信息 + 首页全局投资策略（云端持久化）。  
+RLS：`SELECT/INSERT/UPDATE` 仅允许 `user_id = auth.uid()`。
+
+### 5.3 表：stocks
 
 见 `001_create_stocks.sql`，预留，当前前端未使用。
 
@@ -93,7 +104,9 @@ stock-cloud/
 
 ## 6. 环境与部署
 
-环境变量：`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`。首次克隆可将 `.env.example` 复制为 `.env.local` 并填入上述变量。多用户迁移：在 Supabase 控制台执行 `003_holdings_user_id_rls.sql`，并确保 Email Auth 已启用。本地开发：`npm run dev`。构建与生产：`npm run build`、`npm run start`。
+环境变量：`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`。首次克隆可将 `.env.example` 复制为 `.env.local` 并填入上述变量。  
+多用户与设置相关迁移：至少执行 `003_holdings_user_id_rls.sql`、`004_holdings_strategy.sql`、`005_create_profiles.sql`、`006_profiles_investment_strategy.sql`。  
+本地开发：`npm run dev`；异常恢复建议 `npm run dev:restart`。构建与生产：`npm run build`、`npm run start`。
 
 ---
 
@@ -103,3 +116,4 @@ stock-cloud/
 |------|----------|
 | 初稿 | 基于当前代码整理技术栈、结构、接口、数据库与维护说明。 |
 | v0.2 | 增加 AuthGuard、AuthForm；holdings 表增加 user_id、触发器与 RLS。 |
+| v0.3 | 增加设置与策略相关组件；数据库新增 `holdings.strategy` 与 `profiles`/`profiles.investment_strategy`；刷新流程增加前后端超时、并发控制与兜底机制；文档结构与迁移清单更新。 |
