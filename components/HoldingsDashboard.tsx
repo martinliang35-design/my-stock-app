@@ -705,6 +705,9 @@ export default function HoldingsDashboard() {
   );
 
   const totals = computeTotals(holdings, rates);
+  const derivedAvailableCashCny = totalInvestableCny - totals.totalMv;
+  const stockPositionPct = totalInvestableCny > 0.000001 ? (totals.totalMv / totalInvestableCny) * 100 : 0;
+  const stockPositionPctText = `${stockPositionPct.toFixed(1)}%`;
   const totalPnLColorClass = getProfitColorClass(totals.totalProfit);
   const totalPnLBorderClass =
     totals.totalProfit > 0.000001
@@ -769,28 +772,15 @@ export default function HoldingsDashboard() {
               </p>
             </div>
             <div className="rounded-xl border border-sky-500/40 bg-slate-900/90 px-4 py-3 shadow-lg shadow-sky-950/20">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-300/90">可用现金 (CNY)</p>
-              <input
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={availableCashInput}
-                onChange={(e) => setAvailableCashInput(e.target.value)}
-                onBlur={() => {
-                  const t = availableCashInput.trim();
-                  if (t === "" || t === "-" || t === "." || t === "-.") {
-                    setAvailableCashInput("");
-                    return;
-                  }
-                  const n = cashInputToNumber(availableCashInput);
-                  setAvailableCashInput(n === 0 ? "" : String(n));
-                }}
-                className={`mt-1 w-full min-w-0 rounded-md border border-slate-600 bg-slate-800 px-2 py-1.5 tabular-nums text-xl font-bold focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 md:text-2xl ${
-                  availableCashCny < -0.005 ? "text-red-400" : "text-slate-100"
-                }`}
-                placeholder="可填负数表示缺口"
-              />
-              <p className="mt-0.5 text-[10px] text-slate-500">手动填写；饼图「现金」与此一致</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-300/90">股票仓位</p>
+              <p className="mt-1 tabular-nums text-2xl font-bold text-slate-100 md:text-3xl">
+                {stockPositionPctText}
+              </p>
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                {totalInvestableCny > 0.000001
+                  ? "= 总持仓 ÷ 总资产（可投资）"
+                  : "请先填写顶部「总资产（可投资）」"}
+              </p>
             </div>
             <div
               className={`rounded-xl border bg-slate-900/90 px-4 py-3 shadow-lg ${totalPnLBorderClass}`}
@@ -975,7 +965,7 @@ export default function HoldingsDashboard() {
             holdings={holdings}
             rates={rates}
             totalInvestableCny={totalInvestableCny}
-            availableCashCny={availableCashCny}
+            availableCashCny={derivedAvailableCashCny}
           />
         </main>
       </div>

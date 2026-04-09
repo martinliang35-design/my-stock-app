@@ -29,21 +29,38 @@ function getEastMoneySecid(code: string, market: string): string | null {
   return null;
 }
 
-function eastMoneyF43ToPrice(v: number, secid: string): number | null {
-  if (!Number.isFinite(v)) return null;
-  if (String(secid || "").startsWith("116.")) return v / 1000;
-  if (v >= 10000) return v / 100;
-  return v / 1000;
+function pickEastMoneyPriceByLastClose(
+  rawF43: number,
+  secid: string,
+  lastClose: number | null
+): number | null {
+  if (!Number.isFinite(rawF43)) return null;
+  // 港股（116.*）在实践中稳定按 /1000
+  if (String(secid || "").startsWith("116.")) return rawF43 / 1000;
+
+  const p1000 = rawF43 / 1000;
+  const p100 = rawF43 / 100;
+
+  // 没有昨收就用更安全的默认：/1000（ETF 常见），避免 10 倍放大
+  if (lastClose == null || !Number.isFinite(lastClose) || lastClose <= 0) return p1000;
+
+  const relDiff = (p: number) => Math.abs(p - lastClose) / lastClose;
+  const d1000 = relDiff(p1000);
+  const d100 = relDiff(p100);
+
+  // 优先选择更接近昨收的那个；若差异过大（例如 >50%），仍选择更小偏差者
+  return d1000 <= d100 ? p1000 : p100;
 }
 
-async function getEastMoneyPrice(secid: string): Promise<number | null> {
+async function getEastMoneyF43Raw(secid: string): Promise<number | null> {
   const url = `https://push2.eastmoney.com/api/qt/stock/get?secid=${encodeURIComponent(secid)}&fields=f43&invt=2`;
   const res = await fetchWithTimeout(url, { cache: "no-store" }, 6000);
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
   const v = data?.data?.f43;
   if (v == null) return null;
-  return eastMoneyF43ToPrice(Number(v), secid);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 async function getEastMoneyLastClose(secid: string): Promise<number | null> {
@@ -150,8 +167,17 @@ export async function GET(request: NextRequest) {
   try {
     if (market === "A") {
       const secid = getEastMoneySecid(code, "A");
-      let p = secid ? await getEastMoneyPrice(secid) : null;
-      if (p == null && secid) p = await getEastMoneyLastClose(secid);
+      let p: number | null = null;
+      if (secid) {
+        const raw = await getEastMoneyF43Raw(secid);
+        if (raw != null) {
+          // raw >= 10000 时 /100 与 /1000 都可能；取昨收辅助判别，避免 ETF 被 10 倍放大
+          const needLastClose = raw >= 10000 && raw < 1_000_000 && !String(secid).startsWith("116.");
+          const lastClose = needLastClose ? await getEastMoneyLastClose(secid) : null;
+          p = pickEastMoneyPriceByLastClose(raw, secid, lastClose);
+        }
+        if (p == null) p = await getEastMoneyLastClose(secid);
+      }
       if (p != null) return NextResponse.json({ price: p });
       const prefix = /^6/.test(code) || /^5/.test(code) ? "sh" : "sz";
       const symbol = prefix + code.replace(/^(sh|sz)/i, "");
@@ -159,8 +185,15 @@ export async function GET(request: NextRequest) {
       if (sinaP != null) return NextResponse.json({ price: sinaP });
     } else if (market === "HK") {
       const secid = getEastMoneySecid(code, "HK");
-      let p = secid ? await getEastMoneyPrice(secid) : null;
-      if (p == null && secid) p = await getEastMoneyLastClose(secid);
+      let p: number | null = null;
+      if (secid) {
+        const raw = await getEastMoneyF43Raw(secid);
+        if (raw != null) {
+          // 港股按 /1000；这里仍保留昨收兜底
+          p = pickEastMoneyPriceByLastClose(raw, secid, null);
+        }
+        if (p == null) p = await getEastMoneyLastClose(secid);
+      }
       if (p != null) return NextResponse.json({ price: p });
       const raw = code.replace(/^hk/i, "").replace(/\D/g, "") || "0";
       const symbol = "hk" + (raw.length >= 5 ? raw : raw.padStart(5, "0"));
