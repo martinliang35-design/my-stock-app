@@ -32,7 +32,9 @@ function getEastMoneySecid(code: string, market: string): string | null {
 function pickEastMoneyPriceByLastClose(
   rawF43: number,
   secid: string,
-  lastClose: number | null
+  lastClose: number | null,
+  originalCode?: string,
+  market?: "A" | "HK" | "US"
 ): number | null {
   if (!Number.isFinite(rawF43)) return null;
   // 港股（116.*）在实践中稳定按 /1000
@@ -41,8 +43,24 @@ function pickEastMoneyPriceByLastClose(
   const p1000 = rawF43 / 1000;
   const p100 = rawF43 / 100;
 
-  // 没有昨收就用更安全的默认：/1000（ETF 常见），避免 10 倍放大
-  if (lastClose == null || !Number.isFinite(lastClose) || lastClose <= 0) return p1000;
+  // 没有昨收时：A 股按代码类型判别缩放，避免普通股票被误缩小 10 倍
+  if (lastClose == null || !Number.isFinite(lastClose) || lastClose <= 0) {
+    if (market === "A") {
+      const digits = String(originalCode ?? "")
+        .replace(/\D/g, "")
+        .padStart(6, "0")
+        .slice(-6);
+      // 常见普通股票代码段：主板/中小板/创业板/科创板
+      const isLikelyCommonStock = /^(000|001|002|003|300|301|600|601|603|605|688|689)/.test(digits);
+      if (isLikelyCommonStock) return p100;
+      // ETF/场内基金常见代码段优先按 /1000
+      const isLikelyEtfOrFund = /^(15|16|50|51|52|56|58)/.test(digits);
+      if (isLikelyEtfOrFund) return p1000;
+      // 未命中时对 A 股更保守地按 /100，避免把个股缩小 10 倍
+      return p100;
+    }
+    return p1000;
+  }
 
   const relDiff = (p: number) => Math.abs(p - lastClose) / lastClose;
   const d1000 = relDiff(p1000);
@@ -174,7 +192,7 @@ export async function GET(request: NextRequest) {
           // raw >= 10000 时 /100 与 /1000 都可能；取昨收辅助判别，避免 ETF 被 10 倍放大
           const needLastClose = raw >= 10000 && raw < 1_000_000 && !String(secid).startsWith("116.");
           const lastClose = needLastClose ? await getEastMoneyLastClose(secid) : null;
-          p = pickEastMoneyPriceByLastClose(raw, secid, lastClose);
+          p = pickEastMoneyPriceByLastClose(raw, secid, lastClose, code, "A");
         }
         if (p == null) p = await getEastMoneyLastClose(secid);
       }
@@ -190,7 +208,7 @@ export async function GET(request: NextRequest) {
         const raw = await getEastMoneyF43Raw(secid);
         if (raw != null) {
           // 港股按 /1000；这里仍保留昨收兜底
-          p = pickEastMoneyPriceByLastClose(raw, secid, null);
+          p = pickEastMoneyPriceByLastClose(raw, secid, null, code, "HK");
         }
         if (p == null) p = await getEastMoneyLastClose(secid);
       }
