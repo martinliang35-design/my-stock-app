@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Mode = "login" | "signup";
+type Mode = "login" | "signup" | "forgot";
+
+function getResetRedirectTo(): string | null {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim().replace(/\/$/, "");
+  if (siteUrl) return `${siteUrl}/reset-password`;
+  if (typeof window !== "undefined") return `${window.location.origin}/reset-password`;
+  return null;
+}
 
 function getAuthErrorMessage(error: Error, mode: Mode): string {
   const msg = error.message.toLowerCase();
@@ -28,6 +35,7 @@ function getAuthErrorMessage(error: Error, mode: Mode): string {
   if (msg.includes("timeout") || msg.includes("超时")) {
     return "请求超时，请检查网络后重试。";
   }
+  if (mode === "forgot") return "发送重置邮件失败，请稍后重试。";
   if (mode === "login") return "登录失败，请检查邮箱和密码后重试。";
   return "操作失败，请重试。";
 }
@@ -68,7 +76,7 @@ export default function AuthForm({ hint, onAuthSuccess }: Props) {
         }
         setMessage({ type: "success", text: "注册成功，请查收邮件确认（若已开启确认），或直接登录。" });
         onAuthSuccess?.();
-      } else {
+      } else if (mode === "login") {
         const { error } = await Promise.race([
           supabase.auth.signInWithPassword({ email, password }),
           timeoutPromise,
@@ -76,6 +84,20 @@ export default function AuthForm({ hint, onAuthSuccess }: Props) {
         if (error) throw error;
         setMessage({ type: "success", text: "登录成功" });
         onAuthSuccess?.();
+      } else {
+        const redirectTo = getResetRedirectTo();
+        if (!redirectTo) {
+          throw new Error("missing reset redirect url");
+        }
+        const { error } = await Promise.race([
+          supabase.auth.resetPasswordForEmail(email, { redirectTo }),
+          timeoutPromise,
+        ]);
+        if (error) throw error;
+        setMessage({
+          type: "success",
+          text: "如果该邮箱已注册，我们已发送重置邮件，请前往邮箱查看。",
+        });
       }
     } catch (err) {
       const text = err instanceof Error ? getAuthErrorMessage(err, mode) : "操作失败，请重试。";
@@ -107,20 +129,22 @@ export default function AuthForm({ hint, onAuthSuccess }: Props) {
               placeholder="you@example.com"
             />
           </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1">密码</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              minLength={6}
-              className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-foreground placeholder-slate-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="至少 6 位"
-            />
-          </div>
+          {mode !== "forgot" && (
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1">密码</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                minLength={6}
+                className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-foreground placeholder-slate-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="至少 6 位"
+              />
+            </div>
+          )}
           {message && (
             <p className={`text-sm ${message.type === "success" ? "text-green-400" : "text-red-400"}`}>
               {message.text}
@@ -131,15 +155,42 @@ export default function AuthForm({ hint, onAuthSuccess }: Props) {
             disabled={loading}
             className="w-full rounded-md bg-primary px-4 py-2 font-medium text-slate-900 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "处理中…" : mode === "login" ? "登录" : "注册"}
+            {loading ? "处理中…" : mode === "login" ? "登录" : mode === "signup" ? "注册" : "发送重置邮件"}
           </button>
         </form>
+        {mode === "login" && (
+          <button
+            type="button"
+            onClick={() => {
+              setMode("forgot");
+              setMessage(null);
+            }}
+            className="mt-3 w-full text-sm text-slate-400 hover:text-foreground"
+          >
+            忘记密码？
+          </button>
+        )}
+        {mode === "forgot" && (
+          <button
+            type="button"
+            onClick={() => {
+              setMode("login");
+              setMessage(null);
+            }}
+            className="mt-3 w-full text-sm text-slate-400 hover:text-foreground"
+          >
+            返回登录
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(null); }}
+          onClick={() => {
+            setMode(mode === "signup" ? "login" : "signup");
+            setMessage(null);
+          }}
           className="mt-4 w-full text-sm text-slate-400 hover:text-foreground"
         >
-          {mode === "login" ? "没有账号？去注册" : "已有账号？去登录"}
+          {mode === "signup" ? "已有账号？去登录" : "没有账号？去注册"}
         </button>
       </div>
     </div>
