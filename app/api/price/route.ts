@@ -175,6 +175,41 @@ async function getYahooPrice(symbol: string): Promise<number | null> {
   return tryUrl(quoteUrl2, parseQuote);
 }
 
+async function getFundPriceFromEastMoneyApi(code: string): Promise<number | null> {
+  const url = `https://push2.eastmoney.com/api/qt/fund/nav/get?v=1.0&format=json&fundCode=${code}`;
+  const res = await fetchWithTimeout(url, { 
+    cache: "no-store",
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Referer": "https://fund.eastmoney.com/"
+    }
+  }, 8000);
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  if (!data?.data) return null;
+  const price = parseFloat(data.data.dwjz);
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+async function getFundPriceFromPage(code: string): Promise<number | null> {
+  const url = `https://fund.eastmoney.com/${code}.html`;
+  const res = await fetchWithTimeout(url, { 
+    cache: "no-store",
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Referer": "https://fund.eastmoney.com/"
+    }
+  }, 8000);
+  if (!res.ok) return null;
+  const text = await res.text();
+  const match = text.match(/<span class="ui-font-large ui-color-red ui-num">([\d.]+)<\/span>/);
+  if (match) {
+    const price = parseFloat(match[1]);
+    return Number.isFinite(price) && price > 0 ? price : null;
+  }
+  return null;
+}
+
 async function getFundPrice(code: string): Promise<number | null> {
   const url = `https://fundgz.1234567.com.cn/js/${code}.js`;
   const res = await fetchWithTimeout(url, { 
@@ -184,19 +219,28 @@ async function getFundPrice(code: string): Promise<number | null> {
       "Accept": "*/*"
     }
   }, 8000);
-  if (!res.ok) return null;
-  const text = await res.text();
-  const match = text.match(/jsonpgz\((.*?)\);/);
-  if (!match) return null;
-  try {
-    const data = JSON.parse(match[1]);
-    const today = new Date().toISOString().split('T')[0];
-    const hasTodayFormalNav = data.jzrq === today && data.dwjz;
-    const price = parseFloat(hasTodayFormalNav ? data.dwjz : (data.gsz || data.dwjz));
-    return Number.isFinite(price) ? price : null;
-  } catch {
-    return null;
+  
+  if (res.ok) {
+    const text = await res.text();
+    const match = text.match(/jsonpgz\((.*?)\);/);
+    if (match) {
+      try {
+        const data = JSON.parse(match[1]);
+        const today = new Date().toISOString().split('T')[0];
+        const hasTodayFormalNav = data.jzrq === today && data.dwjz;
+        const price = parseFloat(hasTodayFormalNav ? data.dwjz : (data.gsz || data.dwjz));
+        if (Number.isFinite(price) && price > 0) return price;
+      } catch {}
+    }
   }
+  
+  const backupPrice = await getFundPriceFromEastMoneyApi(code);
+  if (backupPrice != null) return backupPrice;
+  
+  const pagePrice = await getFundPriceFromPage(code);
+  if (pagePrice != null) return pagePrice;
+  
+  return null;
 }
 
 export async function GET(request: NextRequest) {
