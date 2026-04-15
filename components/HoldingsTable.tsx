@@ -103,7 +103,14 @@ export default function HoldingsTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-700/80 bg-slate-950/50">
-          {orderedHoldings.map((h) => {
+          {orderedHoldings.length === 0 ? (
+            <tr>
+              <td colSpan={showDetailColumns ? 11 : 9} className="px-4 py-8 text-center text-slate-400">
+                💡 录入您的持仓股票/基金
+              </td>
+            </tr>
+          ) : (
+            orderedHoldings.map((h) => {
             const metrics = computeRowMetrics(h, rates);
             const rowKey = h.id;
             const isDragging = draggedId === h.id;
@@ -252,7 +259,8 @@ export default function HoldingsTable({
                 </td>
               </tr>
             );
-          })}
+          })
+          )}
         </tbody>
       </table>
     </div>
