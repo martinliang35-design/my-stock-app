@@ -893,7 +893,7 @@ export default function HoldingsDashboard() {
                 onClick={handleAddRow}
                 className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700"
               >
-                添加行
+                录入
               </button>
               <div className="relative">
                 <button
