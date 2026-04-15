@@ -28,10 +28,12 @@ export default function SettingsModal({
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [currentEmail, setCurrentEmail] = useState("");
+  const [editingEmail, setEditingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [savingEmail, setSavingEmail] = useState(false);
 
+  const [editingPassword, setEditingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -47,6 +49,12 @@ export default function SettingsModal({
     setProfileError(null);
     setEmailError(null);
     setPasswordError(null);
+    setEditingEmail(false);
+    setEditingPassword(false);
+    setNewEmail("");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmNewPassword("");
     setLoadingProfile(true);
     (async () => {
       try {
@@ -179,163 +187,229 @@ export default function SettingsModal({
 
             <div className="mb-4">
               <label className="block">
-                <span className="mb-1 block text-xs text-slate-400">当前邮箱</span>
-                <input
-                  type="email"
-                  value={currentEmail}
-                  disabled
-                  className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                />
-              </label>
-
-              <label className="mt-3 block">
-                <span className="mb-1 block text-xs text-slate-400">新邮箱</span>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  placeholder="输入新邮箱地址"
-                />
-              </label>
-
-              {emailError && (
-                <div className="mt-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                  {emailError}
+                <span className="mb-1 block text-xs text-slate-400">邮箱</span>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="email"
+                    value={currentEmail}
+                    disabled
+                    className="flex-1 rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                  {!editingEmail ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingEmail(true);
+                        setNewEmail(currentEmail);
+                      }}
+                      className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+                    >
+                      修改
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingEmail(false);
+                        setNewEmail("");
+                        setEmailError(null);
+                      }}
+                      className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+                    >
+                      取消
+                    </button>
+                  )}
                 </div>
+              </label>
+
+              {editingEmail && (
+                <>
+                  <label className="mt-3 block">
+                    <span className="mb-1 block text-xs text-slate-400">新邮箱</span>
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      placeholder="输入新邮箱地址"
+                    />
+                  </label>
+
+                  {emailError && (
+                    <div className="mt-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                      {emailError}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center justify-end">
+                    <button
+                      type="button"
+                      disabled={savingEmail}
+                      onClick={async () => {
+                        setSavingEmail(true);
+                        setEmailError(null);
+                        try {
+                          if (!newEmail.trim()) {
+                            throw new Error("请输入新邮箱地址");
+                          }
+
+                          const emailRegex = /^[\w.-]+@[\w.-]+\.\w+$/;
+                          if (!emailRegex.test(newEmail.trim())) {
+                            throw new Error("请输入有效的邮箱地址");
+                          }
+
+                          const { error: updateError } = await supabase.auth.updateUser({
+                            email: newEmail.trim(),
+                          });
+                          if (updateError) {
+                            throw new Error(updateError.message);
+                          }
+
+                          setCurrentEmail(newEmail.trim());
+                          setEditingEmail(false);
+                          setNewEmail("");
+                        } catch (e) {
+                          setEmailError(e instanceof Error ? e.message : "修改邮箱失败");
+                        } finally {
+                          setSavingEmail(false);
+                        }
+                      }}
+                      className="rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-sky-400 disabled:opacity-50"
+                    >
+                      {savingEmail ? "保存中…" : "保存"}
+                    </button>
+                  </div>
+                </>
               )}
-
-              <div className="mt-3 flex items-center justify-end">
-                <button
-                  type="button"
-                  disabled={savingEmail}
-                  onClick={async () => {
-                    setSavingEmail(true);
-                    setEmailError(null);
-                    try {
-                      if (!newEmail.trim()) {
-                        throw new Error("请输入新邮箱地址");
-                      }
-
-                      const emailRegex = /^[\w.-]+@[\w.-]+\.\w+$/;
-                      if (!emailRegex.test(newEmail.trim())) {
-                        throw new Error("请输入有效的邮箱地址");
-                      }
-
-                      const { error: updateError } = await supabase.auth.updateUser({
-                        email: newEmail.trim(),
-                      });
-                      if (updateError) {
-                        throw new Error(updateError.message);
-                      }
-
-                      setCurrentEmail(newEmail.trim());
-                      setNewEmail("");
-                      setEmailError(null);
-                    } catch (e) {
-                      setEmailError(e instanceof Error ? e.message : "修改邮箱失败");
-                    } finally {
-                      setSavingEmail(false);
-                    }
-                  }}
-                  className="rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-sky-400 disabled:opacity-50"
-                >
-                  {savingEmail ? "保存中…" : "修改邮箱"}
-                </button>
-              </div>
             </div>
 
             <div className="border-t border-slate-700 pt-4">
               <label className="block">
-                <span className="mb-1 block text-xs text-slate-400">当前密码</span>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  placeholder="输入当前密码"
-                />
-              </label>
-
-              <label className="mt-3 block">
-                <span className="mb-1 block text-xs text-slate-400">新密码</span>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  placeholder="至少6位字符"
-                />
-              </label>
-
-              <label className="mt-3 block">
-                <span className="mb-1 block text-xs text-slate-400">确认新密码</span>
-                <input
-                  type="password"
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  placeholder="再次输入新密码"
-                />
-              </label>
-
-              {passwordError && (
-                <div className="mt-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                  {passwordError}
+                <span className="mb-1 block text-xs text-slate-400">密码</span>
+                <div className="flex items-center gap-3">
+                  <span className="flex-1 rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-400">
+                    ****************
+                  </span>
+                  {!editingPassword ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditingPassword(true)}
+                      className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+                    >
+                      修改
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPassword(false);
+                        setCurrentPassword("");
+                        setNewPassword("");
+                        setConfirmNewPassword("");
+                        setPasswordError(null);
+                      }}
+                      className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+                    >
+                      取消
+                    </button>
+                  )}
                 </div>
+              </label>
+
+              {editingPassword && (
+                <>
+                  <label className="mt-3 block">
+                    <span className="mb-1 block text-xs text-slate-400">当前密码</span>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      placeholder="输入当前密码"
+                    />
+                  </label>
+
+                  <label className="mt-3 block">
+                    <span className="mb-1 block text-xs text-slate-400">新密码</span>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      placeholder="至少6位字符"
+                    />
+                  </label>
+
+                  <label className="mt-3 block">
+                    <span className="mb-1 block text-xs text-slate-400">确认新密码</span>
+                    <input
+                      type="password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      placeholder="再次输入新密码"
+                    />
+                  </label>
+
+                  {passwordError && (
+                    <div className="mt-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                      {passwordError}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center justify-end">
+                    <button
+                      type="button"
+                      disabled={savingPassword}
+                      onClick={async () => {
+                        setSavingPassword(true);
+                        setPasswordError(null);
+                        try {
+                          if (!currentPassword.trim()) {
+                            throw new Error("请输入当前密码");
+                          }
+                          if (!newPassword.trim()) {
+                            throw new Error("请输入新密码");
+                          }
+                          if (newPassword.length < 6) {
+                            throw new Error("密码至少需要6位字符");
+                          }
+                          if (newPassword !== confirmNewPassword) {
+                            throw new Error("两次输入的密码不一致");
+                          }
+
+                          const { error: reauthError } = await supabase.auth.signInWithPassword({
+                            email: currentEmail,
+                            password: currentPassword,
+                          });
+                          if (reauthError) {
+                            throw new Error("当前密码验证失败，请检查密码是否正确");
+                          }
+
+                          const { error: updateError } = await supabase.auth.updateUser({
+                            password: newPassword,
+                          });
+                          if (updateError) {
+                            throw new Error(updateError.message);
+                          }
+
+                          setEditingPassword(false);
+                          setCurrentPassword("");
+                          setNewPassword("");
+                          setConfirmNewPassword("");
+                        } catch (e) {
+                          setPasswordError(e instanceof Error ? e.message : "修改密码失败");
+                        } finally {
+                          setSavingPassword(false);
+                        }
+                      }}
+                      className="rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-sky-400 disabled:opacity-50"
+                    >
+                      {savingPassword ? "保存中…" : "保存"}
+                    </button>
+                  </div>
+                </>
               )}
-
-              <div className="mt-3 flex items-center justify-end">
-                <button
-                  type="button"
-                  disabled={savingPassword}
-                  onClick={async () => {
-                    setSavingPassword(true);
-                    setPasswordError(null);
-                    try {
-                      if (!currentPassword.trim()) {
-                        throw new Error("请输入当前密码");
-                      }
-                      if (!newPassword.trim()) {
-                        throw new Error("请输入新密码");
-                      }
-                      if (newPassword.length < 6) {
-                        throw new Error("密码至少需要6位字符");
-                      }
-                      if (newPassword !== confirmNewPassword) {
-                        throw new Error("两次输入的密码不一致");
-                      }
-
-                      const { error: reauthError } = await supabase.auth.signInWithPassword({
-                        email: currentEmail,
-                        password: currentPassword,
-                      });
-                      if (reauthError) {
-                        throw new Error("当前密码验证失败，请检查密码是否正确");
-                      }
-
-                      const { error: updateError } = await supabase.auth.updateUser({
-                        password: newPassword,
-                      });
-                      if (updateError) {
-                        throw new Error(updateError.message);
-                      }
-
-                      setCurrentPassword("");
-                      setNewPassword("");
-                      setConfirmNewPassword("");
-                      setPasswordError(null);
-                    } catch (e) {
-                      setPasswordError(e instanceof Error ? e.message : "修改密码失败");
-                    } finally {
-                      setSavingPassword(false);
-                    }
-                  }}
-                  className="rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-sky-400 disabled:opacity-50"
-                >
-                  {savingPassword ? "保存中…" : "修改密码"}
-                </button>
-              </div>
             </div>
           </div>
 
