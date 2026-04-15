@@ -13,11 +13,17 @@ export type HoldingsTableProps = {
   onUpdate: (id: string, updates: Partial<Omit<Holding, "id" | "created_at" | "updated_at">>) => void;
   onDelete: (id: string) => void;
   onOrderChange: (ids: string[]) => void;
-  onOpenKline: (code: string, market: "A" | "HK" | "US", name: string) => void;
+  onOpenKline: (code: string, market: "A" | "HK" | "US" | "FUND", name: string) => void;
   onOpenStrategy: (holding: Holding) => void;
 };
 
-const MARKETS: Array<"A" | "HK" | "US"> = ["A", "HK", "US"];
+const MARKETS: Array<"A" | "HK" | "US" | "FUND"> = ["A", "HK", "US", "FUND"];
+const MARKET_LABELS: Record<string, string> = {
+  A: "A股",
+  HK: "港股",
+  US: "美股",
+  FUND: "基金",
+};
 
 export default function HoldingsTable({
   holdings,
@@ -144,14 +150,14 @@ export default function HoldingsTable({
                   <select
                     value={h.market}
                     onChange={(e) => {
-                      const v = e.target.value as "A" | "HK" | "US";
+                      const v = e.target.value as "A" | "HK" | "US" | "FUND";
                       if (v !== h.market) onUpdate(h.id, { market: v });
                     }}
                     className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-slate-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                   >
                     {MARKETS.map((m) => (
                       <option key={m} value={m}>
-                        {m}
+                        {MARKET_LABELS[m] || m}
                       </option>
                     ))}
                   </select>
@@ -214,14 +220,16 @@ export default function HoldingsTable({
                   {formatPercent(metrics.profitPercent)}
                 </td>
                 <td className="px-3 py-2.5 text-center">
-                  <button
-                    type="button"
-                    onClick={() => onOpenKline(h.code, h.market, h.name)}
-                    className="mr-2 text-sky-400 hover:text-sky-300"
-                    title="K线"
-                  >
-                    K线
-                  </button>
+                  {h.market !== "FUND" && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenKline(h.code, h.market, h.name)}
+                      className="mr-2 text-sky-400 hover:text-sky-300"
+                      title="K线"
+                    >
+                      K线
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onOpenStrategy(h)}

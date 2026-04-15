@@ -59,6 +59,7 @@ const PIE_COLORS = [
 function marketSuffix(market: Holding["market"]): string {
   if (market === "HK") return "H";
   if (market === "US") return "美";
+  if (market === "FUND") return "基";
   return "A";
 }
 

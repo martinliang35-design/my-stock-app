@@ -5,7 +5,7 @@ export type Holding = {
   user_id?: string;
   code: string;
   name: string;
-  market: "A" | "HK" | "US";
+  market: "A" | "HK" | "US" | "FUND";
   quantity: number;
   cost_price: number;
   current_price: number;
@@ -32,12 +32,17 @@ export async function fetchHoldings(): Promise<Holding[]> {
 }
 
 function normalizeRow(row: Record<string, unknown>): Holding {
+  const marketRaw = String(row.market ?? "");
+  const market: Holding["market"] = 
+    marketRaw === "HK" || marketRaw === "US" || marketRaw === "FUND" 
+      ? marketRaw 
+      : "A";
   return {
     id: String(row.id ?? ""),
     user_id: row.user_id != null ? String(row.user_id) : undefined,
     code: String(row.code ?? ""),
     name: String(row.name ?? ""),
-    market: (row.market === "HK" || row.market === "US" ? row.market : "A") as "A" | "HK" | "US",
+    market,
     quantity: Number(row.quantity) || 0,
     cost_price: Number(row.cost_price) || 0,
     current_price: Number(row.current_price) || 0,

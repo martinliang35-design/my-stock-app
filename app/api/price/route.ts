@@ -175,14 +175,46 @@ async function getYahooPrice(symbol: string): Promise<number | null> {
   return tryUrl(quoteUrl2, parseQuote);
 }
 
+async function getFundPrice(code: string): Promise<number | null> {
+  const url = `https://fundgz.1234567.com.cn/js/${code}.js`;
+  const res = await fetchWithTimeout(url, { 
+    cache: "no-store",
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "*/*"
+    }
+  }, 8000);
+  if (!res.ok) return null;
+  const text = await res.text();
+  const match = text.match(/jsonpgz\((.*?)\);/);
+  if (!match) return null;
+  try {
+    const data = JSON.parse(match[1]);
+    const today = new Date().toISOString().split('T')[0];
+    const hasTodayFormalNav = data.jzrq === today && data.dwjz;
+    const price = parseFloat(hasTodayFormalNav ? data.dwjz : (data.gsz || data.dwjz));
+    return Number.isFinite(price) ? price : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code")?.trim() ?? "";
-  const market = (request.nextUrl.searchParams.get("market") ?? "A") as "A" | "HK" | "US";
+  const market = (request.nextUrl.searchParams.get("market") ?? "A") as "A" | "HK" | "US" | "FUND";
   if (!code) {
     return NextResponse.json({ error: "Missing code" }, { status: 400 });
   }
 
   try {
+    if (market === "FUND") {
+      const p = await getFundPrice(code);
+      if (p != null) return NextResponse.json({ price: p });
+      return NextResponse.json(
+        { error: "Price not found", hint: "请检查基金代码是否正确或稍后重试" },
+        { status: 404 }
+      );
+    }
     if (market === "A") {
       const secid = getEastMoneySecid(code, "A");
       let p: number | null = null;

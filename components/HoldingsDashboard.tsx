@@ -209,11 +209,11 @@ async function runWithConcurrency<T>(items: T[], concurrency: number, fn: (item:
 
 /**
  * 将导入文件里的 market 值归一化为我们的内部约定：
- * - A/HK/US（代码）
- * - A股/港股/美股（中文）
- * - A/H/美（图表/标签里用的缩写）
+ * - A/HK/US/FUND（代码）
+ * - A股/港股/美股/基金（中文）
+ * - A/H/美/基（图表/标签里用的缩写）
  */
-function normalizeMarket(market: unknown): "A" | "HK" | "US" {
+function normalizeMarket(market: unknown): "A" | "HK" | "US" | "FUND" {
   const raw = String(market ?? "").trim();
   if (!raw) return "A";
   const s = raw.replace(/\s+/g, "");
@@ -222,17 +222,19 @@ function normalizeMarket(market: unknown): "A" | "HK" | "US" {
   if (s === "A" || s === "A股" || up === "A") return "A";
   if (s === "H" || s === "HK" || s === "港股" || s.includes("港") || up === "HK") return "HK";
   if (s === "美" || s === "US" || s === "美股" || s.includes("美") || up === "US") return "US";
+  if (s === "FUND" || s === "基金" || s.includes("基") || up === "FUND") return "FUND";
 
   // 兜底：如果是更模糊的输入，尽量做宽松判断
   if (up.includes("港") || s.includes("港")) return "HK";
   if (up.includes("美") || s.includes("美")) return "US";
+  if (up.includes("基") || s.includes("基") || up.includes("FUND")) return "FUND";
   return "A";
 }
 
 type KlineModalState = {
   open: boolean;
   code: string;
-  market: "A" | "HK" | "US";
+  market: "A" | "HK" | "US" | "FUND";
   name: string;
 };
 
@@ -532,13 +534,13 @@ export default function HoldingsDashboard() {
     [refetchHoldings]
   );
 
-  const handleOpenKline = useCallback((code: string, market: "A" | "HK" | "US", name: string) => {
+  const handleOpenKline = useCallback((code: string, market: "A" | "HK" | "US" | "FUND", name: string) => {
     setKlineModal({ open: true, code, market, name });
   }, []);
 
   const handleOpenStrategy = useCallback(
     (h: Holding) => {
-      const suffix = h.market === "HK" ? "H" : h.market === "US" ? "美" : "A";
+      const suffix = h.market === "HK" ? "H" : h.market === "US" ? "美" : h.market === "FUND" ? "基" : "A";
       setStrategyTargetId(h.id);
       setStrategyModalTitle(`投资策略：${h.name || h.code || "—"}(${suffix})`);
       setStrategyModalText(h.strategy ?? "");
