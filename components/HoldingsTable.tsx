@@ -105,7 +105,7 @@ export default function HoldingsTable({
         <tbody className="divide-y divide-slate-700/80 bg-slate-950/50">
           {orderedHoldings.map((h) => {
             const metrics = computeRowMetrics(h, rates);
-            const rowKey = `${h.id}-${h.updated_at ?? ""}`;
+            const rowKey = h.id;
             const isDragging = draggedId === h.id;
             const isDragOver = dragOverId === h.id;
             return (
