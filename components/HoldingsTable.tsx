@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import type { Holding } from "@/lib/holdings";
 import type { Rates } from "@/lib/metrics";
 import { computeRowMetrics } from "@/lib/metrics";
@@ -135,9 +135,24 @@ export default function HoldingsTable({
                   <input
                     type="text"
                     defaultValue={h.code}
-                    onBlur={(e) => {
+                    onBlur={async (e) => {
                       const v = e.target.value.trim();
-                      if (v !== h.code) onUpdate(h.id, { code: v });
+                      if (v !== h.code) {
+                        onUpdate(h.id, { code: v });
+                        if (v && !h.name) {
+                          try {
+                            const res = await fetch(`/api/stock-name?code=${encodeURIComponent(v)}&market=${h.market}`);
+                            if (res.ok) {
+                              const data = await res.json();
+                              if (data.name) {
+                                onUpdate(h.id, { name: data.name });
+                              }
+                            }
+                          } catch (e) {
+                            console.error("Failed to fetch stock name:", e);
+                          }
+                        }
+                      }
                     }}
                     className="w-20 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-slate-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                   />
