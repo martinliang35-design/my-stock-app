@@ -139,12 +139,12 @@ export default function HoldingsTable({
                       const v = e.target.value.trim();
                       if (v !== h.code) {
                         onUpdate(h.id, { code: v });
-                        if (v && !h.name) {
+                        if (v && !h.name && h.market) {
                           try {
                             const res = await fetch(`/api/stock-name?code=${encodeURIComponent(v)}&market=${h.market}`);
                             if (res.ok) {
                               const data = await res.json();
-                              if (data.name) {
+                              if (data.name && typeof data.name === "string") {
                                 onUpdate(h.id, { name: data.name });
                               }
                             }

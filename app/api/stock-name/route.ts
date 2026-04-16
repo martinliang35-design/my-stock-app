@@ -29,7 +29,14 @@ async function getSinaStockName(symbol: string): Promise<string | null> {
   if (!m || !m[1]) return null;
   const parts = m[1].split(",");
   if (parts.length < 1) return null;
-  return parts[0] || null;
+  let name = parts[0] || null;
+  if (name) {
+    name = name.trim();
+    if (!/[\u4e00-\u9fa5a-zA-Z]/.test(name)) {
+      return null;
+    }
+  }
+  return name;
 }
 
 async function getEastMoneyStockName(code: string, market: string): Promise<string | null> {
