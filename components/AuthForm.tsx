@@ -17,9 +17,6 @@ function getAuthErrorMessage(error: Error, mode: Mode): string {
   if (msg.includes("invalid login credentials") || msg.includes("invalid_credentials")) {
     return "邮箱或密码错误，请检查后重试。";
   }
-  if (msg.includes("email not confirmed") || msg.includes("email_not_confirmed")) {
-    return "请先查收邮件并点击确认链接后再登录。";
-  }
   if (msg.includes("user already registered") || msg.includes("already registered")) {
     return "该邮箱已注册，请直接登录。";
   }
@@ -60,7 +57,13 @@ export default function AuthForm({ hint, onAuthSuccess }: Props) {
     try {
       if (mode === "signup") {
         const { data, error } = await Promise.race([
-          supabase.auth.signUp({ email, password }),
+          supabase.auth.signUp({ 
+            email, 
+            password,
+            options: {
+              emailRedirectTo: undefined,
+            },
+          }),
           timeoutPromise,
         ]);
         if (error) throw error;
