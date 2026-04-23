@@ -260,23 +260,23 @@ export async function GET(request: NextRequest) {
       );
     }
     if (market === "A") {
+      const prefix = /^6/.test(code) || /^5/.test(code) ? "sh" : "sz";
+      const symbol = prefix + code.replace(/^(sh|sz)/i, "");
+      const sinaP = await getSinaPrice(symbol);
+      if (sinaP != null && sinaP > 0) return NextResponse.json({ price: sinaP });
+      
       const secid = getEastMoneySecid(code, "A");
       let p: number | null = null;
       if (secid) {
         const raw = await getEastMoneyF43Raw(secid);
         if (raw != null) {
-          // raw >= 10000 时 /100 与 /1000 都可能；取昨收辅助判别，避免 ETF 被 10 倍放大
           const needLastClose = raw >= 10000 && raw < 1_000_000 && !String(secid).startsWith("116.");
           const lastClose = needLastClose ? await getEastMoneyLastClose(secid) : null;
           p = pickEastMoneyPriceByLastClose(raw, secid, lastClose, code, "A");
         }
         if (p == null) p = await getEastMoneyLastClose(secid);
       }
-      if (p != null) return NextResponse.json({ price: p });
-      const prefix = /^6/.test(code) || /^5/.test(code) ? "sh" : "sz";
-      const symbol = prefix + code.replace(/^(sh|sz)/i, "");
-      const sinaP = await getSinaPrice(symbol);
-      if (sinaP != null) return NextResponse.json({ price: sinaP });
+      if (p != null && p > 0) return NextResponse.json({ price: p });
     } else if (market === "HK") {
       const secid = getEastMoneySecid(code, "HK");
       let p: number | null = null;
