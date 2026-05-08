@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "C多市场个人股票持仓看板",
+  title: "多市场个人股票持仓看板",
   description: "多市场股票基金持仓管理工具",
 };
 
